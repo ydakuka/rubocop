@@ -46,10 +46,11 @@ module RuboCop
       #                  .a
       #                  .b
       #                  .c
-      class MultilineMethodCallIndentation < Base
+      class MultilineMethodCallIndentation < Base # rubocop:disable Metrics/ClassLength
         include ConfigurableEnforcedStyle
         include Alignment
         include MultilineExpressionIndentation
+        include RangeHelp
         extend AutoCorrector
 
         def validate_config
@@ -65,7 +66,24 @@ module RuboCop
         private
 
         def autocorrect(corrector, node)
-          AlignmentCorrector.correct(corrector, processed_source, node, @column_delta)
+          if @send_node&.block_node
+            correct_selector_only(corrector, node)
+            correct_block(corrector, @send_node.block_node)
+          else
+            AlignmentCorrector.correct(corrector, processed_source, node, @column_delta)
+          end
+        end
+
+        def correct_selector_only(corrector, node)
+          selector_line = processed_source.buffer.line_range(node.first_line)
+          selector_range = range_between(selector_line.begin_pos, selector_line.end_pos)
+          AlignmentCorrector.correct(corrector, processed_source, selector_range, @column_delta)
+        end
+
+        def correct_block(corrector, block_node)
+          AlignmentCorrector.correct(corrector, processed_source, block_node.body, @column_delta)
+          end_range = range_by_whole_lines(block_node.loc.end, include_final_newline: false)
+          AlignmentCorrector.correct(corrector, processed_source, end_range, @column_delta)
         end
 
         def relevant_node?(send_node)
@@ -84,11 +102,28 @@ module RuboCop
           end
         end
 
-        # rubocop:disable Metrics/AbcSize
         def offending_range(node, lhs, rhs, given_style)
           return false unless begins_its_line?(rhs)
           return false if not_for_this_cop?(node)
 
+          @send_node = node # Store for use in autocorrect
+          if (pair = node.each_ancestor.find(&:pair_type?)) && given_style == :aligned
+            return check_hash_pair_indentation(pair, lhs, rhs, given_style)
+          end
+
+          check_regular_indentation(node, lhs, rhs, given_style)
+        end
+
+        def check_hash_pair_indentation(pair, lhs, rhs, given_style)
+          @base = lhs.source_range
+          correct_column = @base.column
+          @column_delta = correct_column - rhs.column
+          return rhs if @column_delta.nonzero?
+
+          false
+        end
+
+        def check_regular_indentation(node, lhs, rhs, given_style)
           @base = alignment_base(node, rhs, given_style)
           correct_column = if @base
                              parent = node.parent
@@ -100,7 +135,6 @@ module RuboCop
           @column_delta = correct_column - rhs.column
           rhs if @column_delta.nonzero?
         end
-        # rubocop:enable Metrics/AbcSize
 
         def extra_indentation(given_style, parent)
           if given_style == :indented_relative_to_receiver
@@ -129,7 +163,7 @@ module RuboCop
         end
 
         def should_align_with_base?
-          @base && style != :indented_relative_to_receiver
+          @base && style == :aligned
         end
 
         def relative_to_receiver_message(rhs)

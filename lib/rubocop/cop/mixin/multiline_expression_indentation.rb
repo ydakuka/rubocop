@@ -206,8 +206,24 @@ module RuboCop
       def inside_arg_list_parentheses?(node, ancestor)
         return false unless ancestor.send_type? && ancestor.parenthesized?
 
-        node.source_range.begin_pos > ancestor.loc.begin.begin_pos &&
-          node.source_range.end_pos < ancestor.loc.end.end_pos
+        return false unless node.source_range.begin_pos > ancestor.loc.begin.begin_pos &&
+                            node.source_range.end_pos < ancestor.loc.end.end_pos
+
+        return false if has_pair_ancestor_in_arguments?(node, ancestor)
+
+        true
+      end
+
+      def has_pair_ancestor_in_arguments?(node, ancestor)
+        node.each_ancestor do |parent|
+          next unless parent.pair_type?
+
+          ancestor.arguments.each do |arg|
+            return true if within_node?(parent, arg)
+          end
+        end
+
+        false
       end
 
       # Returns true if `node` is a conditional whose `body` and `condition`

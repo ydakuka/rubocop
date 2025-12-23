@@ -838,6 +838,69 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
               .b(c)
       RUBY
     end
+
+    it 'registers an offense and corrects method call inside hash pair value shifted left' do
+      expect_offense(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+         .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Align `.veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name` with `VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName` on line 3.
+          )
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+                 .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+          )
+        end
+      RUBY
+    end
+
+    it 'registers an offense and corrects method call inside hash pair value shifted right' do
+      expect_offense(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+                        .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Align `.veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name` with `VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName` on line 3.
+          )
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+                 .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+          )
+        end
+      RUBY
+    end
+
+    it 'does not work' do
+      expect_offense(<<~RUBY)
+        refusal_advice_params.merge(
+          actions: refusal_advice_params.fetch(:actions).
+            each_pair do |_, suggestions|
+            ^^^^^^^^^ Align `each_pair` with `refusal_advice_params.fetch(:actions).` on line 2.
+              suggestions.transform_values! { |v| v == 'true' }
+            end
+        ).to_h
+      RUBY
+
+      expect_correction(<<~RUBY)
+        refusal_advice_params.merge(
+          actions: refusal_advice_params.fetch(:actions).
+                   each_pair do |_, suggestions|
+                     suggestions.transform_values! { |v| v == 'true' }
+                   end
+        ).to_h
+      RUBY
+    end
   end
 
   shared_examples 'both indented* styles' do
@@ -1070,6 +1133,69 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
          a.
            b
         ]
+      RUBY
+    end
+
+    it 'registers an offense and corrects method call inside hash pair value shifted left' do
+      expect_offense(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+         .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Indent `.veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name` 2 spaces more than `VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName` on line 3.
+          )
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+                   .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+          )
+        end
+      RUBY
+    end
+
+    it 'registers an offense and corrects method call inside hash pair value shifted right' do
+      expect_offense(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+                        .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Indent `.veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name` 2 spaces more than `VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName` on line 3.
+          )
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+                   .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+          )
+        end
+      RUBY
+    end
+
+    it 'does not work' do
+      expect_offense(<<~RUBY)
+        refusal_advice_params.merge(
+          actions: refusal_advice_params.fetch(:actions).
+            each_pair do |_, suggestions|
+            ^^^^^^^^^ Indent `each_pair` 2 spaces more than `refusal_advice_params` on line 2.
+              suggestions.transform_values! { |v| v == 'true' }
+            end
+        ).to_h
+      RUBY
+
+      expect_correction(<<~RUBY)
+        refusal_advice_params.merge(
+          actions: refusal_advice_params.fetch(:actions).
+                     each_pair do |_, suggestions|
+                       suggestions.transform_values! { |v| v == 'true' }
+                     end
+        ).to_h
       RUBY
     end
   end
@@ -1314,6 +1440,69 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
         formatted_int = int_part
           .abs
           .reverse
+      RUBY
+    end
+
+    it 'registers an offense and corrects method call inside hash pair value using standard indentation width shifted left' do
+      expect_offense(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+         .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Use 2 (not -3) spaces for indenting an expression spanning multiple lines.
+          )
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+              .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+          )
+        end
+      RUBY
+    end
+
+    it 'registers an offense and corrects method call inside hash pair value using standard indentation width shifted right' do
+      expect_offense(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+                        .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Use 2 (not 12) spaces for indenting an expression spanning multiple lines.
+          )
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def foo
+          bar(
+            key: VeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeryLongClassName
+              .veeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeery_long_method_name
+          )
+        end
+      RUBY
+    end
+
+    it 'does not work' do
+      expect_offense(<<~RUBY)
+        refusal_advice_params.merge(
+          actions: refusal_advice_params.fetch(:actions).
+              each_pair do |_, suggestions|
+              ^^^^^^^^^ Use 2 (not 4) spaces for indenting an expression spanning multiple lines.
+                suggestions.transform_values! { |v| v == 'true' }
+              end
+        ).to_h
+      RUBY
+
+      expect_correction(<<~RUBY)
+        refusal_advice_params.merge(
+          actions: refusal_advice_params.fetch(:actions).
+            each_pair do |_, suggestions|
+              suggestions.transform_values! { |v| v == 'true' }
+            end
+        ).to_h
       RUBY
     end
 
