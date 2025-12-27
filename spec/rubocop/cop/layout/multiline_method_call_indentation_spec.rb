@@ -1247,7 +1247,7 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
 
     it 'registers an offense and corrects method call with block inside hash pair value' do
       expect_offense(<<~RUBY)
-        refusal_advice_params.merge(
+        parsed_params = refusal_advice_params.merge(
           actions: refusal_advice_params.fetch(:actions).
             each_pair do |_, suggestions|
             ^^^^^^^^^ Indent `each_pair` 2 spaces more than `refusal_advice_params` on line 2.
@@ -1257,7 +1257,7 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
       RUBY
 
       expect_correction(<<~RUBY)
-        refusal_advice_params.merge(
+        parsed_params = refusal_advice_params.merge(
           actions: refusal_advice_params.fetch(:actions).
                      each_pair do |_, suggestions|
                        suggestions.transform_values! { |v| v == 'true' }
@@ -1621,17 +1621,17 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
 
     it 'registers an offense and corrects method call with block inside hash pair value' do
       expect_offense(<<~RUBY)
-        refusal_advice_params.merge(
+        parsed_params = refusal_advice_params.merge(
           actions: refusal_advice_params.fetch(:actions).
               each_pair do |_, suggestions|
-              ^^^^^^^^^ Use 2 (not 4) spaces for indenting an expression spanning multiple lines.
+              ^^^^^^^^^ Use 2 (not 4) spaces for indenting an expression in an assignment spanning multiple lines.
                 suggestions.transform_values! { |v| v == 'true' }
               end
         ).to_h
       RUBY
 
       expect_correction(<<~RUBY)
-        refusal_advice_params.merge(
+        parsed_params = refusal_advice_params.merge(
           actions: refusal_advice_params.fetch(:actions).
             each_pair do |_, suggestions|
               suggestions.transform_values! { |v| v == 'true' }

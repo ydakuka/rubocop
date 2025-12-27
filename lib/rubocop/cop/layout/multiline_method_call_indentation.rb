@@ -161,18 +161,22 @@ module RuboCop
         end
 
         def check_hash_pair_indentation(node, lhs, rhs)
-          # When we have a method call inside a hash pair value, align with the receiver
-          # (the method call in the value) rather than with the top of the call chain
-          if node.receiver&.call_type? && node.receiver.loc&.dot && node.receiver.loc&.selector
-            @base = node.receiver.loc.dot.join(node.receiver.loc.selector)
-          else
-            @base = lhs.source_range
-          end
+          @base = find_hash_pair_alignment_base(node) || lhs.source_range
           correct_column = @base.column
           @column_delta = correct_column - rhs.column
           return rhs if @column_delta.nonzero?
 
           false
+        end
+
+        def find_hash_pair_alignment_base(node)
+          return unless node.receiver&.call_type?
+
+          base_receiver = find_base_receiver(node.receiver)
+          return unless base_receiver&.hash_type?
+
+          first_call = first_call_has_a_dot(node)
+          first_call.loc.dot.join(first_call.loc.selector)
         end
 
         def check_regular_indentation(node, lhs, rhs, given_style)
