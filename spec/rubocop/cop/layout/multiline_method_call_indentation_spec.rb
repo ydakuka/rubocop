@@ -968,6 +968,57 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
         )
       RUBY
     end
+
+    it 'temp' do
+      expect_offense(<<~RUBY)
+        def run
+          (date_columns + candidate_columns).uniq
+                                            .select { |column_name|
+                                            ^^^^^^^ Use 2 (not 34) spaces for indenting an expression spanning multiple lines.
+              castable?(column_name)
+            }
+            .each { |column_name|
+              cast(column_name)
+            }
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def run
+          (date_columns + candidate_columns).uniq
+            .select { |column_name|
+              castable?(column_name)
+            }
+            .each { |column_name|
+              cast(column_name)
+            }
+        end
+      RUBY
+    end
+
+    # it 'temp2' do
+    #   expect_no_offenses(<<~RUBY)
+    #     def targets_for(path)
+    #       fullpath = fullpath_for(path)
+    #       [
+    #         Dir.glob(fullpath),
+    #       ].flatten
+    #         .uniq
+    #         .delete_if { |entry| dot_directory?(entry) }
+    #     end
+    #   RUBY
+
+    #   expect_correction(<<~RUBY)
+    #     def targets_for(path)
+    #       fullpath = fullpath_for(path)
+    #       [
+    #         Dir.glob(fullpath),
+    #       ].flatten
+    #        .uniq
+    #        .delete_if { |entry| dot_directory?(entry) }
+    #     end
+    #   RUBY
+    # end
   end
 
   shared_examples 'both indented* styles' do
@@ -1332,6 +1383,56 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
         )
       RUBY
     end
+
+    # it 'temp' do
+    #   expect_offense(<<~RUBY)
+    #     def run
+    #       (date_columns + candidate_columns).uniq
+    #                                         .select { |column_name|
+    #           castable?(column_name)
+    #         }
+    #         .each { |column_name|
+    #           cast(column_name)
+    #         }
+    #     end
+    #   RUBY
+
+    #   expect_correction(<<~RUBY)
+    #     def run
+    #       (date_columns + candidate_columns).uniq
+    #                                           .select { |column_name|
+    #                                             castable?(column_name)
+    #                                           }
+    #                                           .each { |column_name|
+    #                                             cast(column_name)
+    #                                           }
+    #     end
+    #   RUBY
+    # end
+
+    # it 'temp2' do
+    #   expect_no_offenses(<<~RUBY)
+    #     def targets_for(path)
+    #       fullpath = fullpath_for(path)
+    #       [
+    #         Dir.glob(fullpath),
+    #       ].flatten
+    #         .uniq
+    #         .delete_if { |entry| dot_directory?(entry) }
+    #     end
+    #   RUBY
+
+    #   expect_correction(<<~RUBY)
+    #     def targets_for(path)
+    #       fullpath = fullpath_for(path)
+    #       [
+    #         Dir.glob(fullpath),
+    #       ].flatten
+    #        .uniq
+    #        .delete_if { |entry| dot_directory?(entry) }
+    #     end
+    #   RUBY
+    # end
   end
 
   context 'when EnforcedStyle is indented' do
@@ -1706,6 +1807,56 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
         )
       RUBY
     end
+
+    # it 'temp' do
+    #   expect_offense(<<~RUBY)
+    #     def run
+    #       (date_columns + candidate_columns).uniq
+    #                                         .select { |column_name|
+    #           castable?(column_name)
+    #         }
+    #         .each { |column_name|
+    #           cast(column_name)
+    #         }
+    #     end
+    #   RUBY
+
+    #   expect_correction(<<~RUBY)
+    #     def run
+    #       (date_columns + candidate_columns).uniq
+    #         .select { |column_name|
+    #           castable?(column_name)
+    #         }
+    #         .each { |column_name|
+    #           cast(column_name)
+    #         }
+    #     end
+    #   RUBY
+    # end
+
+    # it 'temp2' do
+    #   expect_no_offenses(<<~RUBY)
+    #     def targets_for(path)
+    #       fullpath = fullpath_for(path)
+    #       [
+    #         Dir.glob(fullpath),
+    #       ].flatten
+    #         .uniq
+    #         .delete_if { |entry| dot_directory?(entry) }
+    #     end
+    #   RUBY
+
+    #   expect_correction(<<~RUBY)
+    #     def targets_for(path)
+    #       fullpath = fullpath_for(path)
+    #       [
+    #         Dir.glob(fullpath),
+    #       ].flatten
+    #        .uniq
+    #        .delete_if { |entry| dot_directory?(entry) }
+    #     end
+    #   RUBY
+    # end
 
     context 'when indentation width is overridden for this cop' do
       let(:cop_indent) { 7 }

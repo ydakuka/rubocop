@@ -328,6 +328,16 @@ module RuboCop
           node = first_call_has_a_dot(node)
           return if node.loc.dot.line != node.first_line
 
+          # Don't use alignment base if the first call's dot is on the same line
+          # as the base receiver, and the base receiver is a begin node (parenthesized expression)
+          # (i.e., it's not a continuation from a parenthesized expression receiver)
+          base_receiver = find_base_receiver(node)
+          if base_receiver && node.loc.dot.line == base_receiver.last_line && base_receiver.begin_type?
+            # Only apply this rule if base_receiver is a begin node (parenthesized expression)
+            # This handles cases like (a + b).uniq where .uniq is on the same line
+            return
+          end
+
           node
         end
 
@@ -354,7 +364,27 @@ module RuboCop
           base_receiver = find_base_receiver(node)
           return base_receiver if base_receiver_valid_for_pair?(base_receiver, node)
 
-          first_call_has_a_dot(node)
+          # If the receiver is a call with a dot, and that dot is on a line after
+          # the receiver's receiver's last line, it's a continuation, so use it as the alignment base
+          if node.receiver&.call_type? && node.receiver.loc&.dot
+            receiver_call = node.receiver
+            if receiver_call.receiver && receiver_call.loc.dot.line > receiver_call.receiver.last_line
+              return receiver_call
+            end
+          end
+
+          first_call = first_call_has_a_dot(node)
+          # Don't use alignment base if the first call's dot is on the same line
+          # as the base receiver, and the base receiver is a begin node (parenthesized expression)
+          # (i.e., it's not a continuation from a parenthesized expression receiver)
+          base_receiver = find_base_receiver(first_call)
+          if base_receiver && first_call.loc.dot.line == base_receiver.last_line && base_receiver.begin_type?
+            # Only apply this rule if base_receiver is a begin node (parenthesized expression)
+            # This handles cases like (a + b).uniq where .uniq is on the same line
+            return
+          end
+
+          first_call
         end
 
         def base_receiver_valid_for_pair?(base_receiver, node)
