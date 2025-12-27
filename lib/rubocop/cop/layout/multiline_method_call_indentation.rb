@@ -65,6 +65,22 @@ module RuboCop
 
         private
 
+        def find_base_receiver(node)
+          base_receiver = node
+          while base_receiver.respond_to?(:receiver) && base_receiver.receiver
+            base_receiver = base_receiver.receiver
+          end
+          base_receiver
+        end
+
+        def find_pair_ancestor(node)
+          node.each_ancestor.find(&:pair_type?)
+        end
+
+        def receiver_is_method_call_with_dot?(node)
+          node.receiver&.call_type? && node.receiver.loc.dot
+        end
+
         def autocorrect(corrector, node)
           if @send_node&.block_node
             correct_selector_only(corrector, node)
@@ -107,15 +123,51 @@ module RuboCop
           return false if not_for_this_cop?(node)
 
           @send_node = node # Store for use in autocorrect
-          if (pair = node.each_ancestor.find(&:pair_type?)) && given_style == :aligned
-            return check_hash_pair_indentation(pair, lhs, rhs, given_style)
+          pair_ancestor = find_pair_ancestor(node)
+          if hash_pair_aligned?(pair_ancestor, given_style)
+            return check_hash_pair_indentation(node, lhs, rhs)
+          end
+          if hash_pair_indented?(node, pair_ancestor, given_style)
+            return check_hash_pair_indented_style(rhs, pair_ancestor)
+          end
+
+          if alignment_base(node, rhs, given_style)
+            return check_regular_indentation(node, lhs, rhs, given_style)
           end
 
           check_regular_indentation(node, lhs, rhs, given_style)
         end
 
-        def check_hash_pair_indentation(pair, lhs, rhs, given_style)
-          @base = lhs.source_range
+        def hash_pair_aligned?(pair_ancestor, given_style)
+          pair_ancestor && given_style == :aligned
+        end
+
+        def hash_pair_indented?(node, pair_ancestor, given_style)
+          return false unless given_style == :indented && pair_ancestor
+
+          base_receiver = find_base_receiver(node)
+          base_receiver&.hash_type?
+        end
+
+        def check_hash_pair_indented_style(rhs, pair_ancestor)
+          pair_key = pair_ancestor.key
+          double_indentation = configured_indentation_width * 2
+          correct_column = pair_key.source_range.column + double_indentation
+          @hash_pair_base_column = pair_key.source_range.column + configured_indentation_width
+          @column_delta = correct_column - rhs.column
+          return rhs if @column_delta.nonzero?
+
+          false
+        end
+
+        def check_hash_pair_indentation(node, lhs, rhs)
+          # When we have a method call inside a hash pair value, align with the receiver
+          # (the method call in the value) rather than with the top of the call chain
+          if node.receiver&.call_type? && node.receiver.loc&.dot && node.receiver.loc&.selector
+            @base = node.receiver.loc.dot.join(node.receiver.loc.selector)
+          else
+            @base = lhs.source_range
+          end
           correct_column = @base.column
           @column_delta = correct_column - rhs.column
           return rhs if @column_delta.nonzero?
@@ -125,6 +177,7 @@ module RuboCop
 
         def check_regular_indentation(node, lhs, rhs, given_style)
           @base = alignment_base(node, rhs, given_style)
+
           correct_column = if @base
                              parent = node.parent
                              parent = parent.parent if parent&.any_block_type?
@@ -180,10 +233,16 @@ module RuboCop
         end
 
         def no_base_message(lhs, rhs, node)
-          used_indentation = rhs.column - indentation(lhs)
+          if @hash_pair_base_column
+            used_indentation = rhs.column - @hash_pair_base_column
+            expected_indentation = configured_indentation_width
+          else
+            used_indentation = rhs.column - indentation(lhs)
+            expected_indentation = correct_indentation(node)
+          end
           what = operation_description(node, rhs)
 
-          "Use #{correct_indentation(node)} (not #{used_indentation}) " \
+          "Use #{expected_indentation} (not #{used_indentation}) " \
             "spaces for indenting #{what} spanning multiple lines."
         end
 
@@ -220,7 +279,7 @@ module RuboCop
           return unless rhs.source.start_with?('.', '&.')
 
           node = semantic_alignment_node(node)
-          return unless node&.loc&.selector && node.loc.dot
+          return unless node&.call_type? && node.loc&.selector && node.loc.dot
 
           node.loc.dot.join(node.loc.selector)
         end
@@ -229,27 +288,47 @@ module RuboCop
         #   .b
         #   .c
         def receiver_alignment_base(node)
-          node = node.receiver while node.receiver
-          node = node.parent
-          node = node.parent until node.loc.dot
+          hash_method_base = find_hash_method_base_in_receiver_chain(node)
+          return hash_method_base if hash_method_base
 
-          node&.receiver&.source_range
+          first_call = first_call_has_a_dot(node)
+          first_call&.receiver&.source_range
+        end
+
+        def find_hash_method_base_in_receiver_chain(node)
+          return unless receiver_is_method_call_with_dot?(node)
+
+          receiver_chain = node.receiver
+          while receiver_chain&.call_type?
+            if receiver_chain.receiver&.hash_type?
+              return receiver_chain.loc.dot.join(receiver_chain.loc.selector)
+            end
+
+            receiver_chain = receiver_chain.receiver
+          end
+
+          nil
         end
 
         def semantic_alignment_node(node)
           return if argument_in_method_call(node, :with_parentheses)
 
+          return node.receiver if pair_ancestor_without_block?(node)
+
           dot_right_above = get_dot_right_above(node)
           return dot_right_above if dot_right_above
 
-          if (multiline_block_chain_node = find_multiline_block_chain_node(node))
-            return multiline_block_chain_node
-          end
+          multiline_block_chain_node = find_multiline_block_chain_node(node)
+          return multiline_block_chain_node if multiline_block_chain_node
 
           node = first_call_has_a_dot(node)
           return if node.loc.dot.line != node.first_line
 
           node
+        end
+
+        def pair_ancestor_without_block?(node)
+          find_pair_ancestor(node) && !node.receiver&.any_block_type?
         end
 
         def get_dot_right_above(node)
@@ -262,19 +341,32 @@ module RuboCop
         end
 
         def find_multiline_block_chain_node(node)
-          return unless (block_node = node.each_descendant(:any_block).first)
-          return unless block_node.multiline? && block_node.parent.call_type?
+          return handle_node_with_block(node) if node.block_node && node.receiver
 
-          if node.receiver.call_type?
-            node.receiver
-          else
-            block_node.parent
-          end
+          handle_descendant_block(node)
+        end
+
+        def handle_node_with_block(node)
+          base_receiver = find_base_receiver(node)
+          return base_receiver if base_receiver_valid_for_pair?(base_receiver, node)
+
+          first_call_has_a_dot(node)
+        end
+
+        def base_receiver_valid_for_pair?(base_receiver, node)
+          base_receiver && !base_receiver.hash_type? && find_pair_ancestor(node)
+        end
+
+        def handle_descendant_block(node)
+          block_node = node.each_descendant(:any_block).first
+          return unless block_node&.multiline? && block_node.parent&.call_type?
+
+          node.receiver&.call_type? ? node.receiver : block_node.parent
         end
 
         def first_call_has_a_dot(node)
           # descend to root of method chain
-          node = node.receiver while node.receiver
+          node = find_base_receiver(node)
           # ascend to first call which has a dot
           node = node.parent
           node = node.parent until node.loc?(:dot)

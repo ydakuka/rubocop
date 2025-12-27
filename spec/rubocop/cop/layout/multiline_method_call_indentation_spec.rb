@@ -881,24 +881,91 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
       RUBY
     end
 
-    it 'does not work' do
+    it 'registers an offense and corrects method call with block inside hash pair value' do
       expect_offense(<<~RUBY)
-        refusal_advice_params.merge(
+        parsed_params = refusal_advice_params.merge(
           actions: refusal_advice_params.fetch(:actions).
-            each_pair do |_, suggestions|
-            ^^^^^^^^^ Align `each_pair` with `refusal_advice_params.fetch(:actions).` on line 2.
-              suggestions.transform_values! { |v| v == 'true' }
-            end
+                      each_pair do |_, suggestions|
+                      ^^^^^^^^^ Align `each_pair` with `refusal_advice_params.fetch(:actions).` on line 2.
+                        suggestions.transform_values! { |v| v == 'true' }
+                      end
         ).to_h
       RUBY
 
       expect_correction(<<~RUBY)
-        refusal_advice_params.merge(
+        parsed_params = refusal_advice_params.merge(
           actions: refusal_advice_params.fetch(:actions).
                    each_pair do |_, suggestions|
                      suggestions.transform_values! { |v| v == 'true' }
                    end
         ).to_h
+      RUBY
+    end
+
+    it 'registers an offense and corrects method chain inside hash pair value' do
+      expect_offense(<<~RUBY)
+        def payload
+          {
+            type: 'action',
+            params: {
+              page: get_page_name,
+              email: @action.member.email,
+              mailing_id: @mailing_id
+            }.reverse_merge(@action.form_data)
+              .merge(UserLanguageISO.for(page.language))
+              ^^^^^^ Align `.merge` with `.reverse_merge` on line 8.
+              .tap do |params|
+              ^^^^ Align `.tap` with `.reverse_merge` on line 8.
+                params[:country] = country(member.country) if member.country.present?
+                params[:action_bucket] = data[:bucket] if data.key? :bucket
+              end
+          }.deep_symbolize_keys
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def payload
+          {
+            type: 'action',
+            params: {
+              page: get_page_name,
+              email: @action.member.email,
+              mailing_id: @mailing_id
+            }.reverse_merge(@action.form_data)
+             .merge(UserLanguageISO.for(page.language))
+             .tap do |params|
+               params[:country] = country(member.country) if member.country.present?
+               params[:action_bucket] = data[:bucket] if data.key? :bucket
+             end
+          }.deep_symbolize_keys
+        end
+      RUBY
+    end
+
+    it 'registers an offense and corrects method call after block in hash pair value' do
+      expect_offense(<<~RUBY)
+        add_to_git_repo(
+          initial_repo,
+          "about.json" =>
+            JSON
+              .parse(about_json(about_url: "https://updated.site.com"))
+              ^^^^^^ Align `.parse` with `JSON` on line 4.
+              .tap { |h| h[:component] = true }
+              ^^^^ Align `.tap` with `JSON` on line 4.
+              .to_json,
+              ^^^^^^^^ Align `.to_json` with `JSON` on line 4.
+        )
+      RUBY
+
+      expect_correction(<<~RUBY)
+        add_to_git_repo(
+          initial_repo,
+          "about.json" =>
+            JSON
+            .parse(about_json(about_url: "https://updated.site.com"))
+            .tap { |h| h[:component] = true }
+            .to_json,
+        )
       RUBY
     end
   end
@@ -1178,7 +1245,7 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
       RUBY
     end
 
-    it 'does not work' do
+    it 'registers an offense and corrects method call with block inside hash pair value' do
       expect_offense(<<~RUBY)
         refusal_advice_params.merge(
           actions: refusal_advice_params.fetch(:actions).
@@ -1196,6 +1263,73 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
                        suggestions.transform_values! { |v| v == 'true' }
                      end
         ).to_h
+      RUBY
+    end
+
+    it 'registers an offense and corrects method chain inside hash pair value' do
+      expect_offense(<<~RUBY)
+        def payload
+          {
+            type: 'action',
+            params: {
+              page: get_page_name,
+              email: @action.member.email,
+              mailing_id: @mailing_id
+            }.reverse_merge(@action.form_data)
+              .merge(UserLanguageISO.for(page.language))
+              ^^^^^^ Indent `.merge` 2 spaces more than `.reverse_merge` on line 8.
+              .tap do |params|
+              ^^^^ Indent `.tap` 2 spaces more than `.reverse_merge` on line 8.
+                params[:country] = country(member.country) if member.country.present?
+                params[:action_bucket] = data[:bucket] if data.key? :bucket
+              end
+          }.deep_symbolize_keys
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def payload
+          {
+            type: 'action',
+            params: {
+              page: get_page_name,
+              email: @action.member.email,
+              mailing_id: @mailing_id
+            }.reverse_merge(@action.form_data)
+               .merge(UserLanguageISO.for(page.language))
+               .tap do |params|
+                 params[:country] = country(member.country) if member.country.present?
+                 params[:action_bucket] = data[:bucket] if data.key? :bucket
+               end
+          }.deep_symbolize_keys
+        end
+      RUBY
+    end
+
+    it 'registers an offense and corrects method chain with block in hash pair value' do
+      expect_offense(<<~RUBY)
+        add_to_git_repo(
+          initial_repo,
+          "about.json" =>
+            JSON
+                .parse(about_json(about_url: "https://updated.site.com"))
+                ^^^^^^ Indent `.parse` 2 spaces more than `JSON` on line 4.
+                .tap { |h| h[:component] = true }
+                ^^^^ Indent `.tap` 2 spaces more than `JSON` on line 4.
+                .to_json,
+                ^^^^^^^^ Indent `.to_json` 2 spaces more than `JSON` on line 4.
+        )
+      RUBY
+
+      expect_correction(<<~RUBY)
+        add_to_git_repo(
+          initial_repo,
+          "about.json" =>
+            JSON
+              .parse(about_json(about_url: "https://updated.site.com"))
+              .tap { |h| h[:component] = true }
+              .to_json,
+        )
       RUBY
     end
   end
@@ -1485,7 +1619,7 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
       RUBY
     end
 
-    it 'does not work' do
+    it 'registers an offense and corrects method call with block inside hash pair value' do
       expect_offense(<<~RUBY)
         refusal_advice_params.merge(
           actions: refusal_advice_params.fetch(:actions).
@@ -1503,6 +1637,73 @@ RSpec.describe RuboCop::Cop::Layout::MultilineMethodCallIndentation, :config do
               suggestions.transform_values! { |v| v == 'true' }
             end
         ).to_h
+      RUBY
+    end
+
+    it 'registers an offense and corrects method chain inside hash pair value' do
+      expect_offense(<<~RUBY)
+        def payload
+          {
+            type: 'action',
+            params: {
+              page: get_page_name,
+              email: @action.member.email,
+              mailing_id: @mailing_id
+            }.reverse_merge(@action.form_data)
+              .merge(UserLanguageISO.for(page.language))
+              ^^^^^^ Use 2 (not 0) spaces for indenting an expression spanning multiple lines.
+              .tap do |params|
+              ^^^^ Use 2 (not 0) spaces for indenting an expression spanning multiple lines.
+                params[:country] = country(member.country) if member.country.present?
+                params[:action_bucket] = data[:bucket] if data.key? :bucket
+              end
+          }.deep_symbolize_keys
+        end
+      RUBY
+
+      expect_correction(<<~RUBY)
+        def payload
+          {
+            type: 'action',
+            params: {
+              page: get_page_name,
+              email: @action.member.email,
+              mailing_id: @mailing_id
+            }.reverse_merge(@action.form_data)
+                .merge(UserLanguageISO.for(page.language))
+                .tap do |params|
+                  params[:country] = country(member.country) if member.country.present?
+                  params[:action_bucket] = data[:bucket] if data.key? :bucket
+                end
+          }.deep_symbolize_keys
+        end
+      RUBY
+    end
+
+    it 'registers an offense and corrects method chain with block in hash pair value' do
+      expect_offense(<<~RUBY)
+        add_to_git_repo(
+          initial_repo,
+          "about.json" =>
+            JSON
+                .parse(about_json(about_url: "https://updated.site.com"))
+                ^^^^^^ Use 2 (not 4) spaces for indenting an expression spanning multiple lines.
+                .tap { |h| h[:component] = true }
+                ^^^^ Use 2 (not 4) spaces for indenting an expression spanning multiple lines.
+                .to_json,
+                ^^^^^^^^ Use 2 (not 4) spaces for indenting an expression spanning multiple lines.
+        )
+      RUBY
+
+      expect_correction(<<~RUBY)
+        add_to_git_repo(
+          initial_repo,
+          "about.json" =>
+            JSON
+              .parse(about_json(about_url: "https://updated.site.com"))
+              .tap { |h| h[:component] = true }
+              .to_json,
+        )
       RUBY
     end
 
